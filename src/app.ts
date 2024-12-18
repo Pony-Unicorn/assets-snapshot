@@ -127,20 +127,22 @@ const handleERC20 = async () => {
   }
 
   for (const [key, value] of balances.entries()) {
-    if (key === "0x0000000000000000000000000000000000000000") {
-      continue;
-    }
+    if (key === "0x0000000000000000000000000000000000000000") continue;
 
     const balance = value.deposits - value.withdrawals;
 
-    closingBalances.push({
-      wallet: key,
-      balance: formatUnits(balance, config.decimals!)
-    });
+    if (balance > 0n) {
+      closingBalances.push({
+        wallet: key,
+        balance: formatUnits(balance, config.decimals!)
+      });
+    }
   }
 
+  const sortedBalances = closingBalances.sort((a, b) => Number(b.balance) - Number(a.balance));
+
   console.log("Exporting balances");
-  exportBalancesERC20(closingBalances);
+  await exportBalancesERC20(sortedBalances);
   console.log("Exporting balances complete");
 };
 
