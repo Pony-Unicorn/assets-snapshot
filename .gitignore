@@ -87,6 +87,8 @@ typings/
 # DynamoDB Local files
 .dynamodb/
 
+dist
+
 # SQLite Local file
 snapshot.db
 
