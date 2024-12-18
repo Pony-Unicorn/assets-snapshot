@@ -1,0 +1,45 @@
+{
+  "name": "assets-snapshot",
+  "version": "0.0.1",
+  "description": "A command-line tool and SDK that creates snapshots of any ERC20, ERC721, and ERC1155 tokens, synchronizes the data to SQLite, and allows exporting to JSON or CSV formats.",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/index.ts",
+    "lint": "eslint 'src/**/*.{ts,js}'"
+  },
+  "bin": {
+    "assets-snapshot": "./dist/index.js"
+  },
+  "keywords": [
+    "snapshot",
+    "erc20",
+    "erc721",
+    "erc1155",
+    "ethereum",
+    "NFT",
+    "token"
+  ],
+  "author": "Pony",
+  "homepage": "https://github.com/pony13500815917/assets-snapshot",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pony13500815917/assets-snapshot"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "prettier": "^3.4.2"
+  },
+  "dependencies": {
+    "@types/node": "^22.10.2",
+    "commander": "^12.1.0",
+    "sqlite3": "^5.1.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2",
+    "viem": "^2.21.55",
+    "zod": "^3.24.1"
+  }
+}
