@@ -1,10 +1,10 @@
 # Assets Snapshot: Create ERC20, ERC721, and ERC1155 Token Snapshot
 
-一个命令行工具和SDK，用于创建任何ERC20、ERC721和ERC1155代币的快照，将数据同步到SQLite，并允许导出为JSON或CSV格式。
+一个命令行工具和 SDK，用于创建任何 ERC20、ERC721 和 ERC1155 代币的快照，将数据同步到 SQLite，并允许导出为 JSON 或 CSV 格式。
 
-- 无需本地Ethereum节点。
+- 无需本地 Ethereum 节点。
 - 在失败时会自动恢复。
-- 经测试与Alchemy兼容。
+- 经测试与 Alchemy 兼容。
 
 ## Getting Started
 
@@ -44,7 +44,7 @@ assets-snapshot
 
 ### contractAddress
 
-您的ERC20、ERC721和ERC1155合约地址。
+您的 ERC20、ERC721 和 ERC1155 合约地址。
 
 ### fromBlock
 

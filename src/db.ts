@@ -147,3 +147,79 @@ export const getAssetTransfersERC20 = async (lastId: number = 0) => {
     });
   });
 };
+
+export interface IInsertTransactionsERC721 {
+  blockNum: number;
+  hash: string;
+  sender: string;
+  recipient: string;
+  tokenId: string;
+  logIndex: number;
+}
+
+export const insertTransactionsERC721 = async (transactions: IInsertTransactionsERC721[]) => {
+  const config = getConfig();
+
+  if (config.category !== "ERC721") {
+    throw new Error("Invalid category");
+  }
+
+  const tableName = `transaction_${config.name}`;
+  const sql = `
+    INSERT INTO ${tableName} (blockNum, hash, sender, recipient, tokenId, logIndex)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  return new Promise<void>((resolve, reject) => {
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION");
+      const stmt = db.prepare(sql);
+
+      try {
+        for (const tx of transactions) {
+          stmt.run(tx.blockNum, tx.hash, tx.sender, tx.recipient, tx.tokenId, tx.logIndex);
+        }
+
+        stmt.finalize();
+        db.run("COMMIT", (err) => {
+          if (err) reject(err);
+          resolve();
+        });
+      } catch (error) {
+        db.run("ROLLBACK", () => reject(error));
+      }
+    });
+  });
+};
+
+export interface IAssetTransactionsERC721 {
+  id: number;
+  sender: string;
+  recipient: string;
+  tokenId: string;
+}
+
+export const getAssetTransfersERC721 = async (lastId: number = 0) => {
+  const config = getConfig();
+
+  if (config.category !== "ERC721") {
+    throw new Error("Invalid category");
+  }
+
+  const tableName = `transaction_${config.name}`;
+
+  const sql = `
+  SELECT id, sender, recipient, tokenId
+  FROM ${tableName}
+  WHERE id > ?
+  ORDER BY id ASC
+  LIMIT ?
+`;
+
+  return new Promise<IAssetTransactionsERC721[] | null>((resolve, reject) => {
+    db.all(sql, [lastId, config.blocksPerBatch], (err, rows) => {
+      if (err) reject(err);
+      resolve(rows as IAssetTransactionsERC721[] | null);
+    });
+  });
+};
