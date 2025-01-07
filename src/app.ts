@@ -10,16 +10,11 @@ import {
   getAssetTransfersERC20,
   getAssetTransfersERC721,
   getMaxBlockNum,
-  IAssetTransactionsERC20,
   insertTransactionsERC20,
   insertTransactionsERC721
 } from './db';
 import { sleep } from './helper';
-import {
-  exportBalancesERC20,
-  exportBalancesERC721,
-  IExportBalancesERC20
-} from './export';
+import { exportBalancesERC20, exportBalancesERC721 } from './export';
 
 const zeroAddress = '0x0000000000000000000000000000000000000000';
 
@@ -100,35 +95,11 @@ const handleERC20 = async () => {
 
   console.log('Calculating balances of %s ', config.name);
 
-  const balances = new Map<string, { deposits: bigint; withdrawals: bigint }>();
-  const closingBalances: IExportBalancesERC20[] = [];
-
-  const setDeposits = (event: IAssetTransactionsERC20) => {
-    const wallet = event.recipient;
-
-    let deposits = (balances.get(wallet) || {}).deposits || 0n;
-    let withdrawals = (balances.get(wallet) || {}).withdrawals || 0n;
-
-    if (event.value) {
-      deposits = deposits + BigInt(event.value);
-      balances.set(wallet, { deposits, withdrawals });
-    }
-  };
-
-  const setWithdrawals = (event: IAssetTransactionsERC20) => {
-    const wallet = event.sender;
-
-    let deposits = (balances.get(wallet) || {}).deposits || 0n;
-    let withdrawals = (balances.get(wallet) || {}).withdrawals || 0n;
-
-    if (event.value) {
-      withdrawals = withdrawals + BigInt(event.value);
-      balances.set(wallet, { deposits, withdrawals });
-    }
-  };
-
   let isComplete = false;
   let lastId = 0;
+
+  const balancesTable = new Map<string, bigint>();
+  balancesTable.set(zeroAddress, 0n); // add 0x0 address
 
   while (!isComplete) {
     const transactions = await getAssetTransfersERC20(lastId);
@@ -136,33 +107,37 @@ const handleERC20 = async () => {
       lastId = transactions[transactions.length - 1].id;
 
       for (const event of transactions) {
-        setDeposits(event);
-        setWithdrawals(event);
+        balancesTable.has(event.recipient)
+          ? balancesTable.set(
+              event.recipient,
+              (balancesTable.get(event.recipient) as bigint) +
+                BigInt(event.value)
+            )
+          : balancesTable.set(event.recipient, BigInt(event.value));
+
+        balancesTable.set(
+          event.sender,
+          (balancesTable.get(event.sender) as bigint) - BigInt(event.value)
+        );
       }
     } else {
       isComplete = true;
     }
   }
 
-  for (const [key, value] of balances.entries()) {
-    if (key === zeroAddress) continue;
-
-    const balance = value.deposits - value.withdrawals;
-
-    if (balance > 0n) {
-      closingBalances.push({
-        wallet: key,
-        balance: formatUnits(balance, config.decimals!)
-      });
-    }
-  }
-
-  const sortedBalances = closingBalances.sort(
-    (a, b) => Number(b.balance) - Number(a.balance)
-  );
+  const balances = Array.from(balancesTable, ([wallet, balance]) => ({
+    wallet,
+    balance
+  }))
+    .filter(({ balance }) => balance > 0n)
+    .sort((a, b) => (a.balance > b.balance ? -1 : 1))
+    .map(({ wallet, balance }) => ({
+      wallet,
+      balance: formatUnits(balance, config.decimals!)
+    }));
 
   console.log('Exporting balances');
-  await exportBalancesERC20(sortedBalances);
+  await exportBalancesERC20(balances);
   console.log('Exporting balances complete');
 };
 
@@ -240,11 +215,9 @@ const handleERC721 = async () => {
       lastId = transactions[transactions.length - 1].id;
 
       for (const event of transactions) {
-        // add tokenIds to balancesTable
         balancesTable.has(event.recipient)
           ? (balancesTable.get(event.recipient) as string[]).push(event.tokenId)
           : balancesTable.set(event.recipient, [event.tokenId]);
-        // remove tokenIds from balancesTable
         const updatedBalances = (
           balancesTable.get(event.sender) as string[]
         ).filter((tokenId) => tokenId !== event.tokenId);
