@@ -1,20 +1,38 @@
-import { formatUnits } from "viem";
-import { getConfig } from "./config";
-import { getBlockNumber, getERC20Decimals, getERC20Transfer, getERC721Transfer } from "./contract";
-import { getAssetTransfersERC20, getAssetTransfersERC721, getMaxBlockNum, IAssetTransactionsERC20, IAssetTransactionsERC721, insertTransactionsERC20, insertTransactionsERC721 } from "./db";
-import { sleep } from "./helper";
-import { exportBalancesERC20, exportBalancesERC721, IExportBalancesERC20, IExportBalancesERC721 } from "./export";
+import { formatUnits } from 'viem';
+import { getConfig } from './config';
+import {
+  getBlockNumber,
+  getERC20Decimals,
+  getERC20Transfer,
+  getERC721Transfer
+} from './contract';
+import {
+  getAssetTransfersERC20,
+  getAssetTransfersERC721,
+  getMaxBlockNum,
+  IAssetTransactionsERC20,
+  insertTransactionsERC20,
+  insertTransactionsERC721
+} from './db';
+import { sleep } from './helper';
+import {
+  exportBalancesERC20,
+  exportBalancesERC721,
+  IExportBalancesERC20
+} from './export';
+
+const zeroAddress = '0x0000000000000000000000000000000000000000';
 
 export const start = async () => {
   const config = getConfig();
-  if (config.category === "ERC20") {
+  if (config.category === 'ERC20') {
     await handleERC20();
-  } else if (config.category === "ERC721") {
+  } else if (config.category === 'ERC721') {
     await handleERC721();
-  } else if (config.category === "ERC1155") {
+  } else if (config.category === 'ERC1155') {
     await handleERC1155();
   } else {
-    console.error("Invalid category");
+    console.error('Invalid category');
   }
 };
 
@@ -29,17 +47,17 @@ const handleERC20 = async () => {
   const maxBlockNum = await getMaxBlockNum();
 
   if (maxBlockNum) {
-    console.log("Resuming from the last downloaded block #", maxBlockNum);
+    console.log('Resuming from the last downloaded block #', maxBlockNum);
     fromBlock = BigInt(maxBlockNum) + 1n;
   }
 
-  if (config.toBlock === "latest") {
+  if (config.toBlock === 'latest') {
     toBlock = await getBlockNumber();
   } else {
     toBlock = BigInt(config.toBlock);
   }
 
-  console.log("From %d to %d", fromBlock, toBlock);
+  console.log('From %d to %d', fromBlock, toBlock);
 
   const blocksPerBatch = BigInt(config.blocksPerBatch);
   const delay = config.delay;
@@ -55,7 +73,7 @@ const handleERC20 = async () => {
       await sleep(delay);
     }
 
-    console.log("Batch", i, " From", start, "to", end);
+    console.log('Batch', i, ' From', start, 'to', end);
 
     const logs = await getERC20Transfer(start, end);
 
@@ -68,7 +86,7 @@ const handleERC20 = async () => {
       value: log.value.toString()
     }));
 
-    console.log("Transactions count ", transactions.length);
+    console.log('Transactions count ', transactions.length);
 
     await insertTransactionsERC20(transactions);
 
@@ -80,7 +98,7 @@ const handleERC20 = async () => {
     }
   }
 
-  console.log("Calculating balances of %s ", config.name);
+  console.log('Calculating balances of %s ', config.name);
 
   const balances = new Map<string, { deposits: bigint; withdrawals: bigint }>();
   const closingBalances: IExportBalancesERC20[] = [];
@@ -127,7 +145,7 @@ const handleERC20 = async () => {
   }
 
   for (const [key, value] of balances.entries()) {
-    if (key === "0x0000000000000000000000000000000000000000") continue;
+    if (key === zeroAddress) continue;
 
     const balance = value.deposits - value.withdrawals;
 
@@ -139,11 +157,13 @@ const handleERC20 = async () => {
     }
   }
 
-  const sortedBalances = closingBalances.sort((a, b) => Number(b.balance) - Number(a.balance));
+  const sortedBalances = closingBalances.sort(
+    (a, b) => Number(b.balance) - Number(a.balance)
+  );
 
-  console.log("Exporting balances");
+  console.log('Exporting balances');
   await exportBalancesERC20(sortedBalances);
-  console.log("Exporting balances complete");
+  console.log('Exporting balances complete');
 };
 
 const handleERC721 = async () => {
@@ -155,17 +175,17 @@ const handleERC721 = async () => {
   const maxBlockNum = await getMaxBlockNum();
 
   if (maxBlockNum) {
-    console.log("Resuming from the last downloaded block #", maxBlockNum);
+    console.log('Resuming from the last downloaded block #', maxBlockNum);
     fromBlock = BigInt(maxBlockNum) + 1n;
   }
 
-  if (config.toBlock === "latest") {
+  if (config.toBlock === 'latest') {
     toBlock = await getBlockNumber();
   } else {
     toBlock = BigInt(config.toBlock);
   }
 
-  console.log("From %d to %d", fromBlock, toBlock);
+  console.log('From %d to %d', fromBlock, toBlock);
 
   const blocksPerBatch = BigInt(config.blocksPerBatch);
   const delay = config.delay;
@@ -181,7 +201,7 @@ const handleERC721 = async () => {
       await sleep(delay);
     }
 
-    console.log("Batch", i, " From", start, "to", end);
+    console.log('Batch', i, ' From', start, 'to', end);
 
     const logs = await getERC721Transfer(start, end);
 
@@ -194,7 +214,7 @@ const handleERC721 = async () => {
       tokenId: log.tokenId.toString()
     }));
 
-    console.log("Transactions count ", transactions.length);
+    console.log('Transactions count ', transactions.length);
 
     await insertTransactionsERC721(transactions);
 
@@ -206,41 +226,13 @@ const handleERC721 = async () => {
     }
   }
 
-  console.log("Calculating balances of %s ", config.name);
-
-  const balances = new Map<string, { deposits: string[]; withdrawals: string[] }>();
-  const closingBalances: IExportBalancesERC721[] = [];
-
-  const setDeposits = (event: IAssetTransactionsERC721) => {
-    const wallet = event.recipient;
-
-    let deposits = (balances.get(wallet) || {}).deposits || [];
-    let withdrawals = (balances.get(wallet) || {}).withdrawals || [];
-
-    if (event.tokenId) {
-      deposits = [...deposits, event.tokenId];
-      balances.set(wallet, { deposits, withdrawals });
-    } else {
-      throw new TypeError("invalid tokenId value");
-    }
-  };
-
-  const setWithdrawals = (event: IAssetTransactionsERC721) => {
-    const wallet = event.sender;
-
-    let deposits = (balances.get(wallet) || {}).deposits || [];
-    let withdrawals = (balances.get(wallet) || {}).withdrawals || [];
-
-    if (event.tokenId) {
-      withdrawals = [...withdrawals, event.tokenId];
-      balances.set(wallet, { deposits, withdrawals });
-    } else {
-      throw new TypeError("invalid tokenId value");
-    }
-  };
+  console.log('Calculating balances of %s ', config.name);
 
   let isComplete = false;
   let lastId = 0;
+
+  const balancesTable = new Map<string, string[]>();
+  balancesTable.set(zeroAddress, []); // add 0x0 address
 
   while (!isComplete) {
     const transactions = await getAssetTransfersERC721(lastId);
@@ -248,32 +240,33 @@ const handleERC721 = async () => {
       lastId = transactions[transactions.length - 1].id;
 
       for (const event of transactions) {
-        setDeposits(event);
-        setWithdrawals(event);
+        // add tokenIds to balancesTable
+        balancesTable.has(event.recipient)
+          ? (balancesTable.get(event.recipient) as string[]).push(event.tokenId)
+          : balancesTable.set(event.recipient, [event.tokenId]);
+        // remove tokenIds from balancesTable
+        const updatedBalances = (
+          balancesTable.get(event.sender) as string[]
+        ).filter((tokenId) => tokenId !== event.tokenId);
+        balancesTable.set(event.sender, updatedBalances);
       }
     } else {
       isComplete = true;
     }
   }
 
-  for (const [key, value] of balances.entries()) {
-    if (key === "0x0000000000000000000000000000000000000000") continue;
+  balancesTable.delete(zeroAddress); // remove 0x0 address
 
-    const tokenIds = value.deposits.filter((x) => !value.withdrawals.includes(x));
+  const balances = Array.from(balancesTable, ([wallet, tokenIds]) => ({
+    wallet,
+    tokenIds
+  })).filter((b) => b.tokenIds.length > 0);
 
-    closingBalances.push({
-      wallet: key,
-      tokenIds
-    });
-  }
-
-  const filterBalances = closingBalances.filter((b) => b.tokenIds.length > 0);
-
-  console.log("Exporting balances");
-  await exportBalancesERC721(filterBalances);
-  console.log("Exporting balances complete");
+  console.log('Exporting balances');
+  await exportBalancesERC721(balances);
+  console.log('Exporting balances complete');
 };
 
 const handleERC1155 = async () => {
-  console.warn("Not implemented yet");
+  console.warn('Not implemented yet');
 };
